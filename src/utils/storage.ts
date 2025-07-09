@@ -1,5 +1,11 @@
 import { User, Customer, Bill } from '../types';
 
+// Single admin user credentials
+const ADMIN_CREDENTIALS = {
+  email: 'admin@zenithbill.com',
+  password: 'admin123' // In production, this should be hashed
+};
+
 const STORAGE_KEYS = {
   USERS: 'zenithbill_users',
   CUSTOMERS: 'zenithbill_customers',
@@ -26,14 +32,11 @@ export const storageService = {
   },
 
   authenticateUser: (email: string, password: string): User | null => {
-    const users = storageService.getUsers();
-    // For demo purposes, we'll use a simple check
-    // In production, use proper password hashing
-    const user = users.find(u => u.email === email);
-    if (user || email === 'admin@zenithbill.com') {
-      const authenticatedUser = user || {
+    // Single user authentication
+    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+      const authenticatedUser = {
         id: 'admin-1',
-        email: 'admin@zenithbill.com',
+        email: ADMIN_CREDENTIALS.email,
         name: 'System Administrator',
         role: 'Admin' as const,
         createdAt: new Date()

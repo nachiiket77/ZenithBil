@@ -11,8 +11,8 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@zenithbill.com');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +26,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       if (user) {
         onLogin(user);
       } else {
-        setError('Invalid credentials. Use admin@zenithbill.com with any password for demo.');
+        setError('Invalid credentials. Please check your email and password.');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -84,9 +84,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Demo Credentials:</p>
-          <p className="font-mono bg-gray-100/80 p-2 rounded mt-2">
-            admin@zenithbill.com
+          <p>Default Admin Account</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Contact administrator for credentials
           </p>
         </div>
       </GlassCard>

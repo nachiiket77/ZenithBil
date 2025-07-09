@@ -2,6 +2,29 @@
 
 A comprehensive restaurant billing and management system with enterprise-grade security features.
 
+## 🖥️ Desktop Application
+
+ZenithBill can be converted to a desktop application (.exe) using Electron:
+
+### Quick Start for Desktop
+```bash
+# Install dependencies
+npm install
+
+# Run in development mode
+npm run electron-dev
+
+# Build desktop application
+npm run electron-pack
+```
+
+The built .exe file will be available in the `dist-electron` folder.
+
+### System Requirements
+- Windows 10 or later
+- 4GB RAM minimum
+- 500MB free disk space
+
 ## 🔐 Security Features
 
 ### Encryption System
@@ -31,6 +54,14 @@ A comprehensive restaurant billing and management system with enterprise-grade s
 - **Failed attempt tracking**
 - **Session management** with timeouts
 - **Real-time security status** monitoring
+
+## 🔑 Authentication
+
+**Single Admin User:**
+- Email: admin@zenithbill.com
+- Password: admin123
+
+*Note: Change these credentials in production by modifying `src/utils/storage.ts`*
 
 ## 🚀 Features
 
@@ -89,6 +120,18 @@ npm install
 npm run dev
 ```
 
+### Desktop Application
+```bash
+# Install dependencies
+npm install
+
+# Development mode
+npm run electron-dev
+
+# Build for production
+npm run electron-pack
+```
+
 ### Security Configuration
 1. **Initialize Key Manager**: Set up master password for key encryption
 2. **Enable Data Encryption**: Protect customer and billing data
@@ -98,7 +141,7 @@ npm run dev
 ## 🔧 Usage
 
 ### Basic Operations
-1. **Login**: Use admin@zenithbill.com with any password for demo
+1. **Login**: Use admin@zenithbill.com with password: admin123
 2. **Customer Management**: Add customers via CSV import or manual entry
 3. **Billing**: Create bills with automatic calculations
 4. **Security**: Access encryption tools via Settings > Encryption
@@ -114,6 +157,31 @@ npm run dev
 2. **Data Validation**: Automatic validation and error reporting
 3. **Backup/Restore**: Encrypted backup and recovery options
 
+## 🏗️ Building for Production
+
+### Web Application
+```bash
+npm run build
+```
+
+### Desktop Application
+```bash
+# Build .exe for Windows
+npm run electron-pack
+
+# The installer will be in dist-electron/
+# File: ZenithBill Setup 1.0.0.exe
+```
+
+### Customization
+To change admin credentials, edit `src/utils/storage.ts`:
+```javascript
+const ADMIN_CREDENTIALS = {
+  email: 'your-email@domain.com',
+  password: 'your-secure-password'
+};
+```
+
 ## 🔐 Security Architecture
 
 ### Encryption Flow
@@ -128,7 +196,7 @@ Master Password → Key Derivation → Encrypted Key Storage → Secure Retrieva
 
 ### Authentication Flow
 ```
-Login → Session Token → Timeout Management → Secure Logout
+Admin Login → Session Token → 30min Timeout → Secure Logout
 ```
 
 ## 📊 Security Monitoring
@@ -161,6 +229,9 @@ src/
 │   │   ├── keyManager.ts
 │   │   └── secureStorage.ts
 │   └── ...
+public/
+├── electron.js            # Electron main process
+└── ...
 ```
 
 ### Security Testing
@@ -173,6 +244,15 @@ npm run test:encryption
 
 # Validate key management
 npm run test:keys
+```
+
+### Desktop Development
+```bash
+# Development with hot reload
+npm run electron-dev
+
+# Build and test
+npm run electron-pack
 ```
 
 ## 📝 API Reference
@@ -217,9 +297,16 @@ const data = await secureStorage.retrieve(key, password);
 - Monitor for security events
 
 ### Password Requirements
-- **Master Password**: Minimum 12 characters with complexity requirements
+- **Admin Password**: Change default credentials immediately
+- **Master Password**: Minimum 12 characters with complexity requirements  
 - **Encryption Password**: Minimum 8 characters with strength validation
 - **Regular rotation** of passwords and keys
+
+### Desktop Security
+- **Code signing**: Sign the .exe for Windows SmartScreen bypass
+- **Auto-updates**: Implement secure update mechanism
+- **Local storage**: All data stored locally and encrypted
+- **Network isolation**: No external dependencies in offline mode
 
 ## 📞 Support
 
@@ -235,4 +322,8 @@ This project includes enterprise-grade security features and should be used in c
 
 ---
 
-**⚠️ Security Notice**: This system handles sensitive financial and customer data. Ensure proper security measures are in place before production deployment.
+**⚠️ Security Notice**: 
+- Change default admin credentials before production use
+- This system handles sensitive financial and customer data
+- Ensure proper security measures are in place before deployment
+- Desktop version stores all data locally - ensure proper backup procedures
