@@ -34,7 +34,7 @@ export class FileEncryption {
       const fileContent = await this.readFileAsText(file);
       
       // Generate checksum for integrity verification
-      const checksum = this.cryptoEngine.generateSecureHash(fileContent);
+      const checksum = await this.cryptoEngine.generateSecureHash(fileContent);
       
       // Encrypt the file content
       const encryptionResult = await this.cryptoEngine.encryptText(fileContent, password);
@@ -81,7 +81,7 @@ export class FileEncryption {
       );
 
       // Verify integrity using checksum
-      const calculatedChecksum = this.cryptoEngine.generateSecureHash(decryptedContent);
+      const calculatedChecksum = await this.cryptoEngine.generateSecureHash(decryptedContent);
       if (calculatedChecksum !== fileEncryptionResult.metadata.checksum) {
         throw new Error('File integrity check failed - file may be corrupted');
       }

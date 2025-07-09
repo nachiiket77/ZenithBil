@@ -1,7 +1,19 @@
-import { generateKeyPair, createSign, createVerify, randomBytes, scrypt, createCipheriv, createDecipheriv } from 'crypto';
-import { promisify } from 'util';
-
-const scryptAsync = promisify(scrypt);
+declare global {
+  interface Window {
+    electronAPI?: {
+      crypto: {
+        generateKeyPair: (keySize: number) => Promise<{ publicKey: string; privateKey: string }>;
+        deriveKey: (password: string, salt: string, keyLength: number) => Promise<string>;
+        encryptText: (plaintext: string, password: string, config: any) => Promise<EncryptionResult>;
+        decryptText: (encryptionResult: EncryptionResult, password: string, config: any) => Promise<string>;
+        createDigitalSignature: (data: string, privateKey: string) => Promise<string>;
+        verifyDigitalSignature: (data: string, signature: string, publicKey: string) => Promise<boolean>;
+        generateSecureHash: (data: string, algorithm?: string) => Promise<string>;
+        randomBytes: (length: number) => Promise<string>;
+      };
+    };
+  }
+}
 
 export interface EncryptionResult {
   encryptedData: string;
@@ -43,11 +55,23 @@ export class CryptoEngine {
   /**
    * Generate a cryptographically secure random key
    */
-  generateSecureKey(length: number = this.config.keyLength): string {
+  async generateSecureKey(length: number = this.config.keyLength): Promise<string> {
     try {
-      const key = randomBytes(length);
+      let key: string;
+      
+      if (window.electronAPI) {
+        key = await window.electronAPI.crypto.randomBytes(length);
+      } else if (window.crypto && window.crypto.getRandomValues) {
+        // Browser fallback using Web Crypto API
+        const array = new Uint8Array(length);
+        window.crypto.getRandomValues(array);
+        key = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+      } else {
+        throw new Error('No secure random number generator available');
+      }
+      
       this.securityLogger.logEvent('KEY_GENERATION', 'success', { keyLength: length });
-      return key.toString('hex');
+      return key;
     } catch (error) {
       this.securityLogger.logEvent('KEY_GENERATION', 'error', { error: error.message });
       throw new Error('Failed to generate secure key');
@@ -58,41 +82,36 @@ export class CryptoEngine {
    * Generate RSA key pair for asymmetric encryption
    */
   async generateKeyPair(keySize: number = 2048): Promise<KeyPair> {
-    return new Promise((resolve, reject) => {
-      try {
-        generateKeyPair('rsa', {
-          modulusLength: keySize,
-          publicKeyEncoding: {
-            type: 'spki',
-            format: 'pem'
-          },
-          privateKeyEncoding: {
-            type: 'pkcs8',
-            format: 'pem'
-          }
-        }, (err, publicKey, privateKey) => {
-          if (err) {
-            this.securityLogger.logEvent('KEYPAIR_GENERATION', 'error', { error: err.message });
-            reject(new Error('Failed to generate key pair'));
-            return;
-          }
-
-          this.securityLogger.logEvent('KEYPAIR_GENERATION', 'success', { keySize });
-          resolve({ publicKey, privateKey });
-        });
-      } catch (error) {
-        this.securityLogger.logEvent('KEYPAIR_GENERATION', 'error', { error: error.message });
-        reject(new Error('Failed to generate key pair'));
+    try {
+      let keyPair: KeyPair;
+      
+      if (window.electronAPI) {
+        keyPair = await window.electronAPI.crypto.generateKeyPair(keySize);
+      } else {
+        throw new Error('Key pair generation not supported in browser environment');
       }
-    });
+
+      this.securityLogger.logEvent('KEYPAIR_GENERATION', 'success', { keySize });
+      return keyPair;
+    } catch (error) {
+      this.securityLogger.logEvent('KEYPAIR_GENERATION', 'error', { error: error.message });
+      throw new Error('Failed to generate key pair');
+    }
   }
 
   /**
    * Derive key from password using PBKDF2 (scrypt)
    */
-  async deriveKey(password: string, salt: Buffer): Promise<Buffer> {
+  async deriveKey(password: string, salt: string): Promise<string> {
     try {
-      const derivedKey = await scryptAsync(password, salt, this.config.keyLength) as Buffer;
+      let derivedKey: string;
+      
+      if (window.electronAPI) {
+        derivedKey = await window.electronAPI.crypto.deriveKey(password, salt, this.config.keyLength);
+      } else {
+        throw new Error('Key derivation not supported in browser environment');
+      }
+
       this.securityLogger.logEvent('KEY_DERIVATION', 'success', { saltLength: salt.length });
       return derivedKey;
     } catch (error) {
@@ -110,23 +129,13 @@ export class CryptoEngine {
         throw new Error('Plaintext and password are required');
       }
 
-      const salt = randomBytes(this.config.saltLength);
-      const iv = randomBytes(this.config.ivLength);
-      const key = await this.deriveKey(password, salt);
-
-      const cipher = createCipheriv(this.config.algorithm, key, iv);
+      let result: EncryptionResult;
       
-      let encrypted = cipher.update(plaintext, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-
-      const tag = this.config.algorithm === 'aes-256-gcm' ? cipher.getAuthTag() : undefined;
-
-      const result: EncryptionResult = {
-        encryptedData: encrypted,
-        iv: iv.toString('hex'),
-        salt: salt.toString('hex'),
-        tag: tag?.toString('hex')
-      };
+      if (window.electronAPI) {
+        result = await window.electronAPI.crypto.encryptText(plaintext, password, this.config);
+      } else {
+        throw new Error('Text encryption not supported in browser environment');
+      }
 
       this.securityLogger.logEvent('TEXT_ENCRYPTION', 'success', { 
         algorithm: this.config.algorithm,
@@ -149,19 +158,13 @@ export class CryptoEngine {
         throw new Error('Encrypted data and password are required');
       }
 
-      const salt = Buffer.from(encryptionResult.salt, 'hex');
-      const iv = Buffer.from(encryptionResult.iv, 'hex');
-      const key = await this.deriveKey(password, salt);
-
-      const decipher = createDecipheriv(this.config.algorithm, key, iv);
+      let decrypted: string;
       
-      if (this.config.algorithm === 'aes-256-gcm' && encryptionResult.tag) {
-        const tag = Buffer.from(encryptionResult.tag, 'hex');
-        decipher.setAuthTag(tag);
+      if (window.electronAPI) {
+        decrypted = await window.electronAPI.crypto.decryptText(encryptionResult, password, this.config);
+      } else {
+        throw new Error('Text decryption not supported in browser environment');
       }
-
-      let decrypted = decipher.update(encryptionResult.encryptedData, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
 
       this.securityLogger.logEvent('TEXT_DECRYPTION', 'success', { 
         algorithm: this.config.algorithm 
@@ -177,13 +180,15 @@ export class CryptoEngine {
   /**
    * Create digital signature
    */
-  createDigitalSignature(data: string, privateKey: string): string {
+  async createDigitalSignature(data: string, privateKey: string): Promise<string> {
     try {
-      const sign = createSign('SHA256');
-      sign.update(data);
-      sign.end();
+      let signature: string;
       
-      const signature = sign.sign(privateKey, 'hex');
+      if (window.electronAPI) {
+        signature = await window.electronAPI.crypto.createDigitalSignature(data, privateKey);
+      } else {
+        throw new Error('Digital signature creation not supported in browser environment');
+      }
       
       this.securityLogger.logEvent('SIGNATURE_CREATION', 'success', { 
         dataLength: data.length 
@@ -199,13 +204,15 @@ export class CryptoEngine {
   /**
    * Verify digital signature
    */
-  verifyDigitalSignature(data: string, signature: string, publicKey: string): boolean {
+  async verifyDigitalSignature(data: string, signature: string, publicKey: string): Promise<boolean> {
     try {
-      const verify = createVerify('SHA256');
-      verify.update(data);
-      verify.end();
+      let isValid: boolean;
       
-      const isValid = verify.verify(publicKey, signature, 'hex');
+      if (window.electronAPI) {
+        isValid = await window.electronAPI.crypto.verifyDigitalSignature(data, signature, publicKey);
+      } else {
+        throw new Error('Digital signature verification not supported in browser environment');
+      }
       
       this.securityLogger.logEvent('SIGNATURE_VERIFICATION', isValid ? 'success' : 'failure', { 
         dataLength: data.length,
@@ -222,13 +229,22 @@ export class CryptoEngine {
   /**
    * Generate secure hash
    */
-  generateSecureHash(data: string, algorithm: string = 'sha256'): string {
+  async generateSecureHash(data: string, algorithm: string = 'sha256'): Promise<string> {
     try {
-      const crypto = require('crypto');
-      const hash = crypto.createHash(algorithm);
-      hash.update(data);
+      let result: string;
       
-      const result = hash.digest('hex');
+      if (window.electronAPI) {
+        result = await window.electronAPI.crypto.generateSecureHash(data, algorithm);
+      } else if (window.crypto && window.crypto.subtle) {
+        // Browser fallback using Web Crypto API
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', dataBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        result = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } else {
+        throw new Error('Hash generation not supported in this environment');
+      }
       
       this.securityLogger.logEvent('HASH_GENERATION', 'success', { 
         algorithm,
@@ -326,7 +342,14 @@ class SecurityLogger {
   }
 
   private generateSessionId(): string {
-    return randomBytes(16).toString('hex');
+    if (window.crypto && window.crypto.getRandomValues) {
+      const array = new Uint8Array(16);
+      window.crypto.getRandomValues(array);
+      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    } else {
+      // Fallback for environments without crypto.getRandomValues
+      return Math.random().toString(36).substr(2, 16);
+    }
   }
 
   exportLogs(): string {
